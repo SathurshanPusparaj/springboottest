@@ -108,3 +108,69 @@ environment.
 4. NONE: Loads an ApplicationContext by using SpringApplication but does not
 provide any web environment
 
+## Integration test
+
+To test Repository we have to disable the h2 database
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+public class EmployeeRepositoryIT {
+}
+
+configure random port to the server
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
+public class EmployeeControllerIT {
+}
+
+### Test containers
+configure test containers
+
+```
+@Testcontainers //This annotation automatically handles the lifecyle of the MySQLContainer
+public class EmployeeControllerITWithTestContainerContainer {
+
+    //static keyword prevent from create test container to each test method execution 
+    @Container
+    private static final MySQLContainer SQL_CONTAINER = new MySQLContainer("mysql:8.1.0")
+            .withUsername("root")
+            .withPassword("root")
+            .withDatabaseName("ems");
+
+    @DynamicPropertySource
+    public static void dynamicPropertySource(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", SQL_CONTAINER::getJdbcUrl);
+        registry.add("spring.datasource.username", SQL_CONTAINER::getUsername);
+        registry.add("spring.datasource.password", SQL_CONTAINER::getPassword);
+    }
+}    
+```
+
+Above code create new container for each and every IT test class to avoid that treat the 
+container as singleton
+
+```
+public abstract class AbstractContainerBaseTest {
+
+    static final MySQLContainer SQL_CONTAINER;
+
+    static {
+        SQL_CONTAINER = new MySQLContainer("mysql:8.1.0")
+                .withUsername("root")
+                .withPassword("root")
+                .withDatabaseName("ems");;
+        SQL_CONTAINER.start();
+    }
+
+    @DynamicPropertySource
+    public static void dynamicPropertySource(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", SQL_CONTAINER::getJdbcUrl);
+        registry.add("spring.datasource.username", SQL_CONTAINER::getUsername);
+        registry.add("spring.datasource.password", SQL_CONTAINER::getPassword);
+    }
+}
+
+public class EmployeeControllerITWithTestContainerContainer extends AbstractContainerBaseTest {
+
+}
+```
+
